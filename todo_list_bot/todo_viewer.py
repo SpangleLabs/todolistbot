@@ -43,7 +43,11 @@ class TodoViewer:
             file_num = int(callback_data.split(b":")[1])
             filename = self._file_list[file_num]
             self.current_todo = TodoList(join(self.directory, filename))
-            return Response(f"Opened todo list: {filename}.\n", buttons=[Button.inline("Back to listing", "list")])
+            self.current_todo.parse()
+            return Response(
+                f"Opened todo list: {filename}.\n{self.current_todo.to_text()}",
+                buttons=[Button.inline("Back to listing", "list")]
+            )
         if callback_data == b"list":
             return self.list_files_message()
         return Response("I do not understand that button.")
