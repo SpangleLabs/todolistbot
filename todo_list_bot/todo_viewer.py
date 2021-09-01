@@ -28,7 +28,8 @@ class TodoViewer:
     def from_json(cls, json_data) -> 'TodoViewer':
         viewer = TodoViewer(json_data["chat_id"])
         viewer.directory = json_data["directory"]
-        viewer.current_todo = TodoList.from_json()
+        if json_data["current_todo"]:
+            viewer.current_todo = TodoList.from_json(json_data["current_todo"])
         viewer._file_list = json_data["_file_list"]
         return viewer
 
