@@ -1,11 +1,11 @@
 from os import listdir
 from os.path import isfile, join
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Union
 
 from telethon import Button
 
 from todo_list_bot.response import Response
-from todo_list_bot.todo_list import TodoList
+from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem
 
 
 class TodoViewer:
@@ -14,6 +14,7 @@ class TodoViewer:
         self.chat_id = chat_id
         self.directory = "store/"
         self.current_todo: Optional[TodoList] = None
+        self.current_todo_path: Optional[List[str]] = None
         self._file_list = None
 
     def to_json(self) -> Dict:
@@ -21,6 +22,7 @@ class TodoViewer:
             "chat_id": self.chat_id,
             "directory": self.directory,
             "current_todo": self.current_todo.to_json() if self.current_todo is not None else None,
+            "current_todo_path": self.current_todo_path,
             "_file_list": self._file_list
         }
 
@@ -30,6 +32,7 @@ class TodoViewer:
         viewer.directory = json_data["directory"]
         if json_data["current_todo"]:
             viewer.current_todo = TodoList.from_json(json_data["current_todo"])
+        viewer.current_todo_path = json_data.get("current_todo_path")
         viewer._file_list = json_data["_file_list"]
         return viewer
 
@@ -39,15 +42,78 @@ class TodoViewer:
         return files
 
     def handle_callback(self, callback_data: bytes) -> Response:
-        if callback_data.split(b":", 1)[0] == b"file":
-            file_num = int(callback_data.split(b":")[1])
+        cmd, *args = callback_data.split(b":", 1)
+        args = args[0] if args else None
+        if cmd == b"file":
+            file_num = int(args.decode())
             filename = self._file_list[file_num]
             self.current_todo = TodoList(join(self.directory, filename))
+            self.current_todo_path = []
             self.current_todo.parse()
             return self.current_todo_list_message()
-        if callback_data == b"list":
+        if cmd == b"list":
+            self.current_todo = None
+            self.current_todo_path = []
             return self.list_files_message()
+        if cmd == b"section":
+            if self.current_todo is None:
+                return Response("No todo list is selected.")
+            section = self.current_section()
+            if isinstance(section, TodoSection):
+                new_section = section.sub_sections[int(args.decode())]
+            else:
+                return Response("Invalid section")
+            self.current_todo_path.append(new_section.title)
+            return self.current_todo_list_message()
+        if cmd == b"item":
+            if self.current_todo is None:
+                return Response("No todo list is selected.")
+            section = self.current_section()
+            if isinstance(section, TodoSection):
+                new_section = section.root_items[int(args.decode())]
+            elif isinstance(section, TodoItem):
+                new_section = section.sub_items[int(args.decode())]
+            else:
+                return Response("Invalid item")
+            self.current_todo_path.append(new_section.name)
+            return self.current_todo_list_message()
+        if cmd == b"up":
+            if self.current_todo is None:
+                return Response("No todo list is selected.")
+            self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
+            return self.current_todo_list_message()
         return Response("I do not understand that button.")
+
+    def current_section(self) -> Optional[Union['TodoSection', 'TodoItem']]:
+        if self.current_todo is None:
+            return None
+        current_section = self.current_todo.root_section
+        for path_part in self.current_todo_path:
+            found = self.find_in_section(current_section, path_part)
+            if not found:
+                return self.current_todo.root_section
+            else:
+                current_section = found
+        return current_section
+
+    # noinspection PyMethodMayBeStatic
+    def find_in_section(
+            self,
+            current_section: Union[TodoSection, TodoItem],
+            path_part: str
+    ) -> Optional[Union[TodoSection, TodoItem]]:
+        if isinstance(current_section, TodoSection):
+            for sub_section in current_section.sub_sections:
+                if sub_section.title == path_part:
+                    return sub_section
+            for item in current_section.root_items:
+                if item.name == path_part:
+                    return item
+        if isinstance(current_section, TodoItem):
+            for item in current_section.sub_items:
+                if item.name == path_part:
+                    return item
+        return None
 
     def current_message(self) -> Response:
         if self.current_todo is None:
@@ -55,16 +121,24 @@ class TodoViewer:
         return self.current_todo_list_message()
 
     def current_todo_list_message(self) -> Response:
-        section = self.current_todo.root_section
-        section_buttons = [
-            Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)
-        ]
-        item_buttons = [
-            Button.inline(item.title, f"item:{n}") for n, item in enumerate(section.root_items)
-        ]
+        section = self.current_section()
+        buttons = [Button.inline("🔙 Back to listing", "list")]
+        if section != self.current_todo.root_section:
+            buttons += [Button.inline("🔼 Up one level", f"up")]
+        if isinstance(section, TodoSection):
+            buttons += [
+                Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)
+            ]
+            buttons += [
+                Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
+            ]
+        if isinstance(section, TodoItem):
+            buttons += [
+                Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
+            ]
         return Response(
-            f"Opened todo list: {self.current_todo.path}.\n{self.current_todo.to_text()}",
-            buttons=[Button.inline("🔙 Back to listing", "list")] + section_buttons + item_buttons
+            f"Opened todo list: {self.current_todo.path}.\n{section.to_text()}",
+            buttons=buttons
         )
 
     def list_files_message(self) -> Response:
@@ -73,4 +147,3 @@ class TodoViewer:
             "You have not selected a todo list. Please choose one:\n" + "\n".join(f"- {file}" for file in files),
             [Button.inline(file, f"file:{n}") for n, file in enumerate(files)]
         )
-
