@@ -42,6 +42,9 @@ class TodoListBot:
         self.client.start(bot_token=self.config.bot_token)
         self.client.run_until_disconnected()
 
+    def save(self) -> None:
+        self.viewer_store.save_to_json(self.config.viewer_store_filename)
+
     async def welcome(self, event: NewMessage.Event) -> None:
         if event.chat_id not in self.config.allowed_chat_ids:
             await event.respond("Apologies, but this bot is only available to certain users.")
@@ -54,6 +57,7 @@ class TodoListBot:
             parse_mode="html",
             buttons=response.buttons()
         )
+        self.save()
         raise StopPropagation
 
     async def handle_callback(self, event: CallbackQuery.Event) -> None:
@@ -67,6 +71,7 @@ class TodoListBot:
                 parse_mode="html",
                 buttons=response.buttons()
             )
+            self.save()
             raise StopPropagation
         # Ask the viewer
         viewer = self.viewer_store.get_viewer(event.chat_id)
@@ -76,6 +81,7 @@ class TodoListBot:
             parse_mode="html",
             buttons=response.buttons()
         )
+        self.save()
         raise StopPropagation
 
 
@@ -126,7 +132,9 @@ class ViewerStore:
         return viewer
 
     def get_viewer(self, chat_id: int) -> TodoViewer:
-        return self.store.get(chat_id, self.create_viewer(chat_id))
+        if chat_id not in self.store:
+            self.create_viewer(chat_id)
+        return self.store[chat_id]
 
     def has_viewer(self, chat_id: int) -> bool:
         return chat_id in self.store
@@ -137,7 +145,7 @@ class ViewerStore:
             "response_cache": self.response_cache.to_json()
         }
         with open(filename, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
 
     @classmethod
     def load_from_json(cls, filename: str) -> 'ViewerStore':
