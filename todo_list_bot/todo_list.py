@@ -119,7 +119,7 @@ class TodoItem:
             parent_section.root_items.append(self)
 
     def to_text(self) -> str:
-        lines = [self.status.value + (" -" * self.depth)[:self.depth] + self.name]
+        lines = [self.status.value + ("- " * self.depth)[:self.depth] + self.name]
         lines += [item.to_text() for item in self.sub_items]
         return "\n".join(lines)
 
