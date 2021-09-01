@@ -65,6 +65,7 @@ class TodoListBot:
             raise StopPropagation
         # Check if response cache does something
         response = self.viewer_store.response_cache.handle_callback(event.chat_id, event.data)
+        self.viewer_store.response_cache.add_response(event.chat_id, response)
         if response:
             await event.edit(
                 response.text,
@@ -76,6 +77,7 @@ class TodoListBot:
         # Ask the viewer
         viewer = self.viewer_store.get_viewer(event.chat_id)
         response = viewer.handle_callback(event.data)
+        self.viewer_store.response_cache.add_response(event.chat_id, response)
         await event.edit(
             response.text,
             parse_mode="html",
