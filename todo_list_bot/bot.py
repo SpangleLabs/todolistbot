@@ -39,6 +39,7 @@ class TodoListBot:
     def start(self) -> None:
         self.client.add_event_handler(self.welcome, NewMessage(pattern="/start", incoming=True))
         self.client.add_event_handler(self.handle_callback, CallbackQuery())
+        self.client.add_event_handler(self.append_todo, NewMessage(incoming=True))
         self.client.start(bot_token=self.config.bot_token)
         self.client.run_until_disconnected()
 
@@ -79,6 +80,20 @@ class TodoListBot:
         response = viewer.handle_callback(event.data)
         self.viewer_store.response_cache.add_response(event.chat_id, response)
         await event.edit(
+            response.text,
+            parse_mode="html",
+            buttons=response.buttons()
+        )
+        self.save()
+        raise StopPropagation
+
+    async def append_todo(self, event: NewMessage.Event) -> None:
+        if not self.viewer_store.has_viewer(event.chat_id):
+            raise StopPropagation
+        viewer = self.viewer_store.get_viewer(event.chat_id)
+        response = viewer.append_todo(event.message.message)
+        self.viewer_store.response_cache.add_response(event.chat_id, response)
+        await event.respond(
             response.text,
             parse_mode="html",
             buttons=response.buttons()

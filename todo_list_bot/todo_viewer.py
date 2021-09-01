@@ -113,6 +113,40 @@ class TodoViewer:
             return self.current_todo_list_message()
         return Response("I do not understand that button.")
 
+    def append_todo(self, entry_text: str) -> Response:
+        section = self.current_section()
+        if section is None:
+            return Response("No todo list section selected.")
+        if entry_text.startswith("#"):
+            title = entry_text.lstrip("#").strip()
+            if section.sub_sections:
+                depth = section.sub_sections[0].depth
+            else:
+                depth = section.depth + 1
+            new_section = TodoSection(title, depth, section)
+            self.current_todo.save()
+            return self.current_todo_list_message(f"Added new section {new_section.to_text()}")
+        status, line = self.current_todo.parse_status(entry_text)
+        item_text = line.lstrip(" -")
+        depth = len(line) - len(item_text)
+        parent_item = None
+        if isinstance(section, TodoSection):
+            if section.root_items:
+                depth = max(depth, section.root_items[0].depth)
+            parent_section = section
+        elif isinstance(section, TodoItem):
+            if section.sub_items:
+                depth = max(depth, section.sub_items[0].depth)
+            else:
+                depth = max(depth, section.depth + 2)
+            parent_section = section.parent_section
+            parent_item = section
+        else:
+            return Response("Invalid state.")
+        new_item = TodoItem(status, item_text.strip(), depth, parent_section, parent_item)
+        self.current_todo.save()
+        return self.current_todo_list_message(f"Added new item: {new_item.to_text()}")
+
     def current_section(self) -> Optional[Union['TodoSection', 'TodoItem']]:
         if self.current_todo is None:
             return None
@@ -149,7 +183,7 @@ class TodoViewer:
             return self.list_files_message()
         return self.current_todo_list_message()
 
-    def current_todo_list_message(self) -> Response:
+    def current_todo_list_message(self, prefix: Optional[str] = None) -> Response:
         section = self.current_section()
         buttons = [Button.inline("🔙 Back to listing", "list")]
         if section != self.current_todo.root_section:
@@ -174,8 +208,11 @@ class TodoViewer:
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
             ]
+        text = f"Opened todo list: {self.current_todo.path}.\n{section.to_text()}"
+        if prefix:
+            text = prefix + "\n-----\n" + text
         return Response(
-            f"Opened todo list: {self.current_todo.path}.\n{section.to_text()}",
+            text,
             buttons=buttons
         )
 

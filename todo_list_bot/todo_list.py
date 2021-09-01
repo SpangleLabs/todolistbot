@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 
 # noinspection PyMethodMayBeStatic
@@ -35,12 +35,7 @@ class TodoList:
         return TodoSection(section_title, section_depth, parent_section)
    
     def parse_item(self, line: str, current_section: 'TodoSection', current_item: Optional['TodoItem']) -> 'TodoItem':
-        status = TodoStatus.TODO
-        for enum_status in TodoStatus:
-            if line.startswith(enum_status.value):
-                status = enum_status
-                line = line[len(enum_status.value):]
-                break
+        status, line = self.parse_status(line)
         item_text = line.lstrip(" -")
         item_depth = len(line) - len(item_text)
         item_text = item_text.strip()
@@ -57,6 +52,15 @@ class TodoList:
                     parent_item = None
                     break
         return TodoItem(status, item_text, item_depth, current_section, parent_item)
+
+    def parse_status(self, line: str) -> Tuple['TodoStatus', str]:
+        status = TodoStatus.TODO
+        for enum_status in TodoStatus:
+            if line.startswith(enum_status.value):
+                status = enum_status
+                line = line[len(enum_status.value):]
+                break
+        return status, line
 
     def to_text(self) -> str:
         return self.root_section.to_text()
