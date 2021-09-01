@@ -98,6 +98,18 @@ class ResponseCache:
             response.page = page_num
             return response
 
+    def to_json(self) -> Dict:
+        return {
+            str(chat_id): response.to_json() for chat_id, response in self.store.items()
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict) -> 'ResponseCache':
+        cache = ResponseCache()
+        for chat_id, response_data in data.items():
+            cache.add_response(int(chat_id), Response.from_json(response_data))
+        return cache
+
 
 class ViewerStore:
 
@@ -121,7 +133,8 @@ class ViewerStore:
 
     def save_to_json(self, filename: str) -> None:
         data = {
-            "viewers": [viewer.to_json() for viewer in self.store.values()]
+            "viewers": [viewer.to_json() for viewer in self.store.values()],
+            "response_cache": self.response_cache.to_json()
         }
         with open(filename, "w") as f:
             json.dump(data, f)
@@ -138,4 +151,5 @@ class ViewerStore:
             for viewer_data in data["viewers"]:
                 viewer = TodoViewer.from_json(viewer_data)
                 store.add_viewer(viewer)
+            store.response_cache = ResponseCache.from_json(data["response_cache"])
             return store

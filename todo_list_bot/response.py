@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from telethon import Button
 
@@ -49,3 +49,24 @@ class Response:
             *([b] for b in buttons),
             page_buttons
         ]
+
+    def to_json(self) -> Dict:
+        return {
+            "text": self.text,
+            "all_buttons": [
+                {
+                    "text": button.text,
+                    "data": button.data
+                } for button in self.all_buttons
+            ],
+            "page": self.page
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict) -> 'Response':
+        response = Response(
+            data["text"],
+            [Button.inline(d["text"], d["data"]) for d in data["all_buttons"]]
+        )
+        response.page = data["page"]
+        return response
