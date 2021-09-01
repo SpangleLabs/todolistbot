@@ -89,7 +89,7 @@ class TodoSection:
         if self.depth != 0:
             lines += ["#" * self.depth + " " + self.title]
         lines += [item.to_text() for item in self.root_items]
-        lines += [section.to_text() for section in self.sub_sections]
+        lines += ["\n" + section.to_text() for section in self.sub_sections]
         return "\n".join(lines)
 
 
