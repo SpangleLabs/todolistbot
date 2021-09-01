@@ -103,6 +103,14 @@ class TodoViewer:
             item.status = TodoStatus.TODO
             self.current_todo.save()
             return self.current_todo_list_message()
+        if cmd == b"delete":
+            section = self.current_section()
+            if section is None:
+                return Response("Unknown section.")
+            section.remove()
+            self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
+            self.current_todo.save()
+            return self.current_todo_list_message()
         return Response("I do not understand that button.")
 
     def current_section(self) -> Optional[Union['TodoSection', 'TodoItem']]:
@@ -145,7 +153,10 @@ class TodoViewer:
         section = self.current_section()
         buttons = [Button.inline("🔙 Back to listing", "list")]
         if section != self.current_todo.root_section:
-            buttons += [Button.inline("🔼 Up one level", f"up")]
+            buttons += [
+                Button.inline("🔼 Up one level", "up"),
+                Button.inline("🗑 Delete", "delete")
+            ]
         if isinstance(section, TodoSection):
             buttons += [
                 Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)

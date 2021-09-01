@@ -86,7 +86,10 @@ class TodoSection:
         if parent:
             parent.sub_sections.append(self)
         self.root_items: List['TodoItem'] = []
-        self.all_items: List['TodoItem'] = []
+
+    def remove(self) -> None:
+        if self.parent:
+            self.parent.sub_sections.remove(self)
 
     def to_text(self) -> str:
         lines = []
@@ -110,13 +113,18 @@ class TodoItem:
         self.name: str = name
         self.depth: int = depth
         self.parent_section: TodoSection = parent_section
-        parent_section.all_items.append(self)
         self.parent_item: Optional['TodoItem'] = parent_item
         self.sub_items: List['TodoItem'] = []
         if parent_item:
             parent_item.sub_items.append(self)
         else:
             parent_section.root_items.append(self)
+
+    def remove(self) -> None:
+        if self.parent_item:
+            self.parent_item.sub_items.remove(self)
+        else:
+            self.parent_section.root_items.remove(self)
 
     def to_text(self) -> str:
         lines = [self.status.value + ("- " * self.depth)[:self.depth] + self.name]
