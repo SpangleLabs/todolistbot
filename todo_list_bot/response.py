@@ -56,7 +56,7 @@ class Response:
             "all_buttons": [
                 {
                     "text": button.text,
-                    "data": button.data
+                    "data": button.data.decode()
                 } for button in self.all_buttons
             ],
             "page": self.page
