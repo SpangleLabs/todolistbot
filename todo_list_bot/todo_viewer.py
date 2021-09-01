@@ -114,6 +114,14 @@ class TodoViewer:
         return Response("I do not understand that button.")
 
     def append_todo(self, entry_text: str) -> Response:
+        if self.current_todo is None:
+            full_path = join(self.directory, entry_text)
+            with open(full_path, "w") as f:
+                f.write("")
+            self.current_todo = TodoList(full_path)
+            self.current_todo_path = []
+            self.current_todo.parse()
+            return self.current_todo_list_message("Created new todo list")
         section = self.current_section()
         if section is None:
             return Response("No todo list section selected.")
