@@ -5,7 +5,7 @@ from typing import Dict, Optional, List, Union
 from telethon import Button
 
 from todo_list_bot.response import Response
-from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem
+from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus
 
 
 class TodoViewer:
@@ -82,6 +82,27 @@ class TodoViewer:
                 return Response("No todo list is selected.")
             self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
             return self.current_todo_list_message()
+        if cmd == b"item_done":
+            item = self.current_section()
+            if not isinstance(item, TodoItem):
+                return Response("Item not currently selected.")
+            item.status = TodoStatus.COMPLETE
+            self.current_todo.save()
+            return self.current_todo_list_message()
+        if cmd == b"item_inp":
+            item = self.current_section()
+            if not isinstance(item, TodoItem):
+                return Response("Item not currently selected.")
+            item.status = TodoStatus.IN_PROGRESS
+            self.current_todo.save()
+            return self.current_todo_list_message()
+        if cmd == b"item_todo":
+            item = self.current_section()
+            if not isinstance(item, TodoItem):
+                return Response("Item not currently selected.")
+            item.status = TodoStatus.TODO
+            self.current_todo.save()
+            return self.current_todo_list_message()
         return Response("I do not understand that button.")
 
     def current_section(self) -> Optional[Union['TodoSection', 'TodoItem']]:
@@ -133,6 +154,12 @@ class TodoViewer:
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
             ]
         if isinstance(section, TodoItem):
+            if section.status != TodoStatus.COMPLETE:
+                buttons += [Button.inline("✔️ Done", "item_done")]
+            if section.status != TodoStatus.IN_PROGRESS:
+                buttons += [Button.inline("⏳ In progress", "item_inp")]
+            if section.status != TodoStatus.TODO:
+                buttons += [Button.inline("❌ Not done", "item_todo")]
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
             ]
