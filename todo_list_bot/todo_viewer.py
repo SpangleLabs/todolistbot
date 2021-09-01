@@ -44,10 +44,7 @@ class TodoViewer:
             filename = self._file_list[file_num]
             self.current_todo = TodoList(join(self.directory, filename))
             self.current_todo.parse()
-            return Response(
-                f"Opened todo list: {filename}.\n{self.current_todo.to_text()}",
-                buttons=[Button.inline("Back to listing", "list")]
-            )
+            return self.current_todo_list_message()
         if callback_data == b"list":
             return self.list_files_message()
         return Response("I do not understand that button.")
@@ -55,7 +52,20 @@ class TodoViewer:
     def current_message(self) -> Response:
         if self.current_todo is None:
             return self.list_files_message()
-        return Response("I am in an invalid state.")
+        return self.current_todo_list_message()
+
+    def current_todo_list_message(self) -> Response:
+        section = self.current_todo.root_section
+        section_buttons = [
+            Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)
+        ]
+        item_buttons = [
+            Button.inline(item.title, f"item:{n}") for n, item in enumerate(section.root_items)
+        ]
+        return Response(
+            f"Opened todo list: {self.current_todo.path}.\n{self.current_todo.to_text()}",
+            buttons=[Button.inline("🔙 Back to listing", "list")] + section_buttons + item_buttons
+        )
 
     def list_files_message(self) -> Response:
         files = self.list_files()
