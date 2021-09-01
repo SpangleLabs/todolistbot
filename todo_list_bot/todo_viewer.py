@@ -159,10 +159,10 @@ class TodoViewer:
             ]
         if isinstance(section, TodoSection):
             buttons += [
-                Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)
+                Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
             ]
             buttons += [
-                Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
+                Button.inline(f"📂 {s.title}", f"section:{n}") for n, s in enumerate(section.sub_sections)
             ]
         if isinstance(section, TodoItem):
             if section.status != TodoStatus.COMPLETE:
