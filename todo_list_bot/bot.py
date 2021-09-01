@@ -45,7 +45,12 @@ class TodoListBot:
             await event.respond("Apologies, but this bot is only available to certain users.")
             raise StopPropagation
         viewer = self.viewer_store.get_viewer(event.chat_id)
-        await event.respond("Welcome to Spangle's todo list bot.\n" + viewer.current_message())
+        response = viewer.current_message()
+        await event.reply(
+            "Welcome to Spangle's todo list bot.\n" + response.text,
+            parse_mode="html",
+            buttons=response.buttons()
+        )
         raise StopPropagation
 
 
@@ -58,7 +63,7 @@ class ViewerStore:
         self.store[viewer.chat_id] = viewer
 
     def create_viewer(self, chat_id: int) -> TodoViewer:
-        viewer = TodoViewer()
+        viewer = TodoViewer(chat_id)
         self.store[chat_id] = viewer
         return viewer
 
