@@ -61,6 +61,10 @@ class TodoList:
     def to_text(self) -> str:
         return self.root_section.to_text()
 
+    def save(self) -> None:
+        with open(self.path, "w") as f:
+            f.write(self.to_text())
+
     def to_json(self) -> Dict:
         return {
             "path": self.path
