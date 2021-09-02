@@ -17,6 +17,7 @@ access_denied = Counter(
     "Count of how many times unauthorised users have tried to start the bot"
 )
 
+
 @dataclasses.dataclass
 class BotConfig:
     api_id: int
@@ -66,8 +67,9 @@ class TodoListBot:
         viewer = self.viewer_store.get_viewer(event.chat_id)
         response = viewer.current_message()
         self.viewer_store.response_cache.add_response(event.chat_id, response)
+        response.prefix("Welcome to Spangle's todo list bot.\n")
         await event.reply(
-            "Welcome to Spangle's todo list bot.\n" + response.text,
+            response.text,
             parse_mode="html",
             buttons=response.buttons()
         )

@@ -6,11 +6,19 @@ from telethon.tl.types import KeyboardButtonCallback
 
 class Response:
     per_page = 6
+    text_length_limit = 4096
 
     def __init__(self, text: str, buttons: Optional[List[KeyboardButtonCallback]] = None):
-        self.text = text
+        self._text = text
         self.all_buttons = buttons
         self.page = 1
+
+    def prefix(self, prefix: str) -> None:
+        self._text = prefix + self._text
+
+    @property
+    def text(self) -> str:
+        return self._text[:self.text_length_limit - 4] + "\n..."
 
     @property
     def pages(self) -> Optional[int]:
