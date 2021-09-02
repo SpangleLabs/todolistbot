@@ -18,7 +18,10 @@ class Response:
 
     @property
     def text(self) -> str:
-        return self._text[:self.text_length_limit - 4] + "\n..."
+        truncated = self._text[:self.text_length_limit - 4]
+        if truncated != self._text:
+            truncated += "\n..."
+        return truncated
 
     @property
     def pages(self) -> Optional[int]:
