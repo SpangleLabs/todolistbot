@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import List, Optional, Dict, Tuple
 
@@ -89,7 +90,22 @@ class TodoList:
         return todo
 
 
-class TodoSection:
+class TodoContainer(ABC):
+
+    @abstractmethod
+    def remove(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_empty(self) -> bool:
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_text(self) -> str:
+        raise NotImplementedError
+
+
+class TodoSection(TodoContainer):
     def __init__(self, title: str, depth: int, parent: Optional['TodoSection']):
         self.title: str = title
         self.depth: int = depth
@@ -98,6 +114,9 @@ class TodoSection:
         if parent:
             parent.sub_sections.append(self)
         self.root_items: List['TodoItem'] = []
+
+    def is_empty(self) -> bool:
+        return not self.sub_sections and not self.root_items
 
     def remove(self) -> None:
         if self.parent:
@@ -112,7 +131,7 @@ class TodoSection:
         return "\n".join(lines)
 
 
-class TodoItem:
+class TodoItem(TodoContainer):
     def __init__(
             self,
             status: 'TodoStatus',
@@ -131,6 +150,9 @@ class TodoItem:
             parent_item.sub_items.append(self)
         else:
             parent_section.root_items.append(self)
+
+    def is_empty(self) -> bool:
+        return not self.sub_items
 
     def remove(self) -> None:
         if self.parent_item:

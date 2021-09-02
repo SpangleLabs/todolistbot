@@ -270,7 +270,7 @@ class TodoViewer:
             buttons += [
                 Button.inline("🔼 Up one level", "up")
             ]
-            if not section.sub_sections and not section.root_items:
+            if section.is_empty():
                 buttons += [
                     Button.inline("🗑 Delete", "delete")
                 ]
