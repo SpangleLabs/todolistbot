@@ -263,8 +263,10 @@ class TodoViewer:
 
     def current_todo_list_message(self, prefix: Optional[str] = None) -> Response:
         section = self.current_section()
-        buttons = [Button.inline("🔙 Back to listing", "list")]
-        if section != self.current_todo.root_section:
+        buttons = []
+        if section == self.current_todo.root_section:
+            buttons += [Button.inline("🔙 Back to listing", "list")]
+        else:
             buttons += [
                 Button.inline("🔼 Up one level", "up")
             ]
