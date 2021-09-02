@@ -72,15 +72,16 @@ class TodoList:
                 break
         return status, line
 
-    def to_text(self) -> str:
+    def to_text(self, section: Optional['TodoSection'] = None) -> str:
+        section = section or self.root_section
         max_length = 4096
-        text = self.root_section.to_text()
+        text = section.to_text()
         if len(text) < max_length:
             return text
         max_depth = 10
-        while len(self.root_section.to_text(max_depth)) > max_length and max_depth >= 1:
+        while len(section.to_text(max_depth)) > max_length and max_depth >= 1:
             max_depth -= 1
-        return self.root_section.to_text(max_depth)
+        return section.to_text(max_depth)
 
     def save(self) -> None:
         with open(self.path, "w") as f:

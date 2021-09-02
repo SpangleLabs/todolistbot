@@ -291,7 +291,7 @@ class TodoViewer:
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
             ]
-        text = f"Opened todo list: {self.current_todo.path}.\n{section.to_text()}"
+        text = f"Opened todo list: {self.current_todo.path}.\n{self.current_todo.to_text(section)}"
         if prefix:
             text = prefix + "\n-----\n" + text
         return Response(
