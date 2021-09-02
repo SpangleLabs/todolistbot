@@ -2,12 +2,20 @@ import dataclasses
 import json
 from typing import Dict, Any, List, Optional
 
+from prometheus_client import start_http_server, Counter
 from telethon import TelegramClient
 from telethon.events import NewMessage, StopPropagation, CallbackQuery
 
 from todo_list_bot.response import Response
 from todo_list_bot.todo_viewer import TodoViewer
 
+start_usage = Counter("todolistbot_usage_start_total", "Count of how many times the start function is called")
+button_usage = Counter("todolistbot_usage_button_total", "Count of how many button callbacks have been processed")
+text_usage = Counter("todolistbot_usage_text_total", "Count of how many times text has been sent to the bot")
+access_denied = Counter(
+    "todolistbot_start_denied_total",
+    "Count of how many times unauthorised users have tried to start the bot"
+)
 
 @dataclasses.dataclass
 class BotConfig:
@@ -16,7 +24,8 @@ class BotConfig:
     bot_token: str
     storage_dir: str
     allowed_chat_ids: List[int]
-    viewer_store_filename: str = "viewer_state.json"
+    viewer_store_filename: str = "viewer_store.json"
+    prometheus_port: int = 8479
 
     @classmethod
     def from_json(cls, json_data: Dict[str, Any]) -> 'BotConfig':
@@ -26,7 +35,8 @@ class BotConfig:
             json_data["telegram"]["bot_token"],
             json_data["storage_dir"],
             json_data["allowed_chat_ids"],
-            json_data.get("viewer_store_filename", "viewer_store.json")
+            json_data.get("viewer_store_filename", "viewer_store.json"),
+            json_data.get("prometheus_port", 8479)
         )
 
 
@@ -41,13 +51,16 @@ class TodoListBot:
         self.client.add_event_handler(self.handle_callback, CallbackQuery())
         self.client.add_event_handler(self.append_todo, NewMessage(incoming=True))
         self.client.start(bot_token=self.config.bot_token)
+        start_http_server(self.config.prometheus_port)
         self.client.run_until_disconnected()
 
     def save(self) -> None:
         self.viewer_store.save_to_json(self.config.viewer_store_filename)
 
     async def welcome(self, event: NewMessage.Event) -> None:
+        start_usage.inc()
         if event.chat_id not in self.config.allowed_chat_ids:
+            access_denied.inc()
             await event.respond("Apologies, but this bot is only available to certain users.")
             raise StopPropagation
         viewer = self.viewer_store.get_viewer(event.chat_id)
@@ -62,6 +75,7 @@ class TodoListBot:
         raise StopPropagation
 
     async def handle_callback(self, event: CallbackQuery.Event) -> None:
+        button_usage.inc()
         if not self.viewer_store.has_viewer(event.chat_id):
             raise StopPropagation
         # Check if response cache does something
@@ -88,6 +102,7 @@ class TodoListBot:
         raise StopPropagation
 
     async def append_todo(self, event: NewMessage.Event) -> None:
+        text_usage.inc()
         if not self.viewer_store.has_viewer(event.chat_id):
             raise StopPropagation
         viewer = self.viewer_store.get_viewer(event.chat_id)

@@ -1,6 +1,11 @@
 from enum import Enum
 from typing import List, Optional, Dict, Tuple
 
+from prometheus_client import Counter
+
+list_parsed = Counter("todolistbot_parse_list_total", "Number of todo lists parsed")
+sections_parsed = Counter("todolistbot_parse_section_total", "Number of todo list sections parsed")
+items_parsed = Counter("todolistbot_parse_items_total", "Number of todo list items parsed")
 
 # noinspection PyMethodMayBeStatic
 class TodoList:
@@ -9,6 +14,7 @@ class TodoList:
         self.root_section = TodoSection("root", 0, None)
 
     def parse(self) -> None:
+        list_parsed.inc()
         with open(self.path, "r") as f:
             contents = f.readlines()
         current_section = self.root_section
@@ -23,6 +29,7 @@ class TodoList:
                 current_item = self.parse_item(line, current_section, current_item)
 
     def parse_section(self, line: str, current_section: 'TodoSection') -> 'TodoSection':
+        sections_parsed.inc()
         section_title = line.lstrip("#")
         section_depth = len(line) - len(section_title)
         section_title = section_title.strip()
@@ -35,6 +42,7 @@ class TodoList:
         return TodoSection(section_title, section_depth, parent_section)
    
     def parse_item(self, line: str, current_section: 'TodoSection', current_item: Optional['TodoItem']) -> 'TodoItem':
+        items_parsed.inc()
         status, line = self.parse_status(line)
         item_text = line.lstrip(" -")
         item_depth = len(line) - len(item_text)

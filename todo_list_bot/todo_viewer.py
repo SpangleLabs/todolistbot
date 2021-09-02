@@ -2,10 +2,27 @@ from os import listdir
 from os.path import isfile, join, isdir
 from typing import Dict, Optional, List, Union
 
+from prometheus_client import Counter
 from telethon import Button
 
 from todo_list_bot.response import Response
 from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus
+
+errors = Counter("todolistbot_viewer_errors_total", "Number of errors in the todo viewer")
+file_selected = Counter("todolistbot_cmd_file_total", "Number of times a file has been opened")
+file_list = Counter("todolistbot_cmd_file_list_total", "Number of times a user has listed the files")
+folder_selected = Counter("todolistbot_cmd_folder_total", "Number of times a user has selected a folder")
+up_folder = Counter("todolistbot_cmd_folder_up_total", "Number of times user has requested to go up a directors")
+section_selected = Counter("todolistbot_cmd_section_total", "Number of times user has selected a section")
+item_selected = Counter("todolistbot_cmd_item_total", "Number of times user has selected an item")
+nav_up = Counter("todolistbot_cmd_up_total", "Number of times a user has navigated out of a section or item")
+item_done = Counter("todolistbot_cmd_item_done_total", "Number of items marked done")
+item_inp = Counter("todolistbot_cmd_item_inp_total", "Number of items marked in progress")
+item_todo = Counter("todolistbot_cmd_item_todo_total", "Number of items marked to do")
+delete = Counter("todolistbot_cmd_delete_total", "Number of items or sections deleted")
+create_file = Counter("todolistbot_create_file_total", "Number of files created")
+create_section = Counter("todolistbot_create_section_total", "Number of sections created")
+create_item = Counter("todolistbot_create_item_total", "Number of items created")
 
 
 class TodoViewer:
@@ -56,6 +73,7 @@ class TodoViewer:
         cmd, *args = callback_data.split(b":", 1)
         args = args[0] if args else None
         if cmd == b"file":
+            file_selected.inc()
             file_num = int(args.decode())
             filename = self._file_list[file_num]
             self.current_todo = TodoList(join(self.current_directory, filename))
@@ -63,10 +81,12 @@ class TodoViewer:
             self.current_todo.parse()
             return self.current_todo_list_message()
         if cmd == b"list":
+            file_list.inc()
             self.current_todo = None
             self.current_todo_path = []
             return self.list_files_message()
         if cmd == b"folder":
+            folder_selected.inc()
             self.current_todo = None
             self.current_todo_path = []
             folder_num = int(args.decode())
@@ -74,25 +94,32 @@ class TodoViewer:
             self.current_directory = "/".join(dir_split + [self._dir_list[folder_num]])
             return self.list_files_message()
         if cmd == b"up_folder":
+            up_folder.inc()
             self.current_todo = None
             self.current_todo_path = []
             if self.current_directory.strip("/") == self.base_directory.strip("/"):
+                errors.inc()
                 return Response("Can't go up from base directory")
             dir_split = self.current_directory.strip("/").split("/")
             self.current_directory = "/".join(dir_split[:len(dir_split)-1])
             return self.list_files_message()
         if cmd == b"section":
+            section_selected.inc()
             if self.current_todo is None:
+                errors.inc()
                 return Response("No todo list is selected.")
             section = self.current_section()
             if isinstance(section, TodoSection):
                 new_section = section.sub_sections[int(args.decode())]
             else:
+                errors.inc()
                 return Response("Invalid section")
             self.current_todo_path.append(new_section.title)
             return self.current_todo_list_message()
         if cmd == b"item":
+            item_selected.inc()
             if self.current_todo is None:
+                errors.inc()
                 return Response("No todo list is selected.")
             section = self.current_section()
             if isinstance(section, TodoSection):
@@ -100,47 +127,60 @@ class TodoViewer:
             elif isinstance(section, TodoItem):
                 new_section = section.sub_items[int(args.decode())]
             else:
+                errors.inc()
                 return Response("Invalid item")
             self.current_todo_path.append(new_section.name)
             return self.current_todo_list_message()
         if cmd == b"up":
+            nav_up.inc()
             if self.current_todo is None:
+                errors.inc()
                 return Response("No todo list is selected.")
             self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
             return self.current_todo_list_message()
         if cmd == b"item_done":
+            item_done.inc()
             item = self.current_section()
             if not isinstance(item, TodoItem):
+                errors.inc()
                 return Response("Item not currently selected.")
             item.status = TodoStatus.COMPLETE
             self.current_todo.save()
             return self.current_todo_list_message()
         if cmd == b"item_inp":
+            item_inp.inc()
             item = self.current_section()
             if not isinstance(item, TodoItem):
+                errors.inc()
                 return Response("Item not currently selected.")
             item.status = TodoStatus.IN_PROGRESS
             self.current_todo.save()
             return self.current_todo_list_message()
         if cmd == b"item_todo":
+            item_todo.inc()
             item = self.current_section()
             if not isinstance(item, TodoItem):
+                errors.inc()
                 return Response("Item not currently selected.")
             item.status = TodoStatus.TODO
             self.current_todo.save()
             return self.current_todo_list_message()
         if cmd == b"delete":
+            delete.inc()
             section = self.current_section()
             if section is None:
+                errors.inc()
                 return Response("Unknown section.")
             section.remove()
             self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
             self.current_todo.save()
             return self.current_todo_list_message()
+        errors.inc()
         return Response("I do not understand that button.")
 
     def append_todo(self, entry_text: str) -> Response:
         if self.current_todo is None:
+            create_file.inc()
             full_path = join(self.current_directory, entry_text)
             with open(full_path, "w") as f:
                 f.write("")
@@ -150,8 +190,10 @@ class TodoViewer:
             return self.current_todo_list_message("Created new todo list")
         section = self.current_section()
         if section is None:
+            errors.inc()
             return Response("No todo list section selected.")
         if entry_text.startswith("#"):
+            create_section.inc()
             title = entry_text.lstrip("#").strip()
             if section.sub_sections:
                 depth = section.sub_sections[0].depth
@@ -160,6 +202,7 @@ class TodoViewer:
             new_section = TodoSection(title, depth, section)
             self.current_todo.save()
             return self.current_todo_list_message(f"Added new section {new_section.to_text()}")
+        create_item.inc()
         status, line = self.current_todo.parse_status(entry_text)
         item_text = line.lstrip(" -")
         depth = len(line) - len(item_text)
@@ -176,6 +219,7 @@ class TodoViewer:
             parent_section = section.parent_section
             parent_item = section
         else:
+            errors.inc()
             return Response("Invalid state.")
         new_item = TodoItem(status, item_text.strip(), depth, parent_section, parent_item)
         self.current_todo.save()
