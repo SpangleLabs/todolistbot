@@ -1,5 +1,5 @@
 from os import listdir
-from os.path import isfile, join
+from os.path import isfile, join, isdir
 from typing import Dict, Optional, List, Union
 
 from telethon import Button
@@ -12,17 +12,21 @@ class TodoViewer:
 
     def __init__(self, chat_id: int):
         self.chat_id = chat_id
-        self.directory = "store/"
+        self.base_directory = "store/"
+        self.current_directory = self.base_directory
         self.current_todo: Optional[TodoList] = None
         self.current_todo_path: Optional[List[str]] = None
+        self._dir_list = None
         self._file_list = None
 
     def to_json(self) -> Dict:
         return {
             "chat_id": self.chat_id,
-            "directory": self.directory,
+            "directory": self.base_directory,
+            "current_directory": self.current_directory,
             "current_todo": self.current_todo.to_json() if self.current_todo is not None else None,
             "current_todo_path": self.current_todo_path,
+            "_dir_list": self._dir_list,
             "_file_list": self._file_list
         }
 
@@ -30,14 +34,21 @@ class TodoViewer:
     def from_json(cls, json_data) -> 'TodoViewer':
         viewer = TodoViewer(json_data["chat_id"])
         viewer.directory = json_data["directory"]
+        viewer.current_directory = json_data.get("current_directory", json_data["directory"])
         if json_data["current_todo"]:
             viewer.current_todo = TodoList.from_json(json_data["current_todo"])
         viewer.current_todo_path = json_data.get("current_todo_path")
+        viewer._dir_list = json_data.get("_dir_list")
         viewer._file_list = json_data["_file_list"]
         return viewer
 
+    def list_directories(self) -> List[str]:
+        directories = sorted([f for f in listdir(self.current_directory) if isdir(join(self.current_directory, f))])
+        self._dir_list = directories
+        return directories
+
     def list_files(self) -> List[str]:
-        files = sorted([f for f in listdir(self.directory) if isfile(join(self.directory, f))])
+        files = sorted([f for f in listdir(self.current_directory) if isfile(join(self.current_directory, f))])
         self._file_list = files
         return files
 
@@ -47,13 +58,28 @@ class TodoViewer:
         if cmd == b"file":
             file_num = int(args.decode())
             filename = self._file_list[file_num]
-            self.current_todo = TodoList(join(self.directory, filename))
+            self.current_todo = TodoList(join(self.current_directory, filename))
             self.current_todo_path = []
             self.current_todo.parse()
             return self.current_todo_list_message()
         if cmd == b"list":
             self.current_todo = None
             self.current_todo_path = []
+            return self.list_files_message()
+        if cmd == b"folder":
+            self.current_todo = None
+            self.current_todo_path = []
+            folder_num = int(args.decode())
+            dir_split = self.current_directory.strip("/").split("/")
+            self.current_directory = "/".join(dir_split + [self._dir_list[folder_num]])
+            return self.list_files_message()
+        if cmd == b"up_folder":
+            self.current_todo = None
+            self.current_todo_path = []
+            if self.current_directory.strip("/") == self.base_directory.strip("/"):
+                return Response("Can't go up from base directory")
+            dir_split = self.current_directory.strip("/").split("/")
+            self.current_directory = "/".join(dir_split[:len(dir_split)-1])
             return self.list_files_message()
         if cmd == b"section":
             if self.current_todo is None:
@@ -115,7 +141,7 @@ class TodoViewer:
 
     def append_todo(self, entry_text: str) -> Response:
         if self.current_todo is None:
-            full_path = join(self.directory, entry_text)
+            full_path = join(self.current_directory, entry_text)
             with open(full_path, "w") as f:
                 f.write("")
             self.current_todo = TodoList(full_path)
@@ -225,8 +251,14 @@ class TodoViewer:
         )
 
     def list_files_message(self) -> Response:
+        directories = self.list_directories()
         files = self.list_files()
+        buttons = []
+        if self.current_directory.strip("/").count("/") > self.base_directory.strip("/").count("/"):
+            buttons += [Button.inline("🔼 Up directory", "up_folder")]
+        buttons += [Button.inline(f"📂 {directory}", f"folder:{n}") for n, directory in enumerate(directories)]
+        buttons += [Button.inline(file, f"file:{n}") for n, file in enumerate(files)]
         return Response(
             "You have not selected a todo list. Please choose one:\n" + "\n".join(f"- {file}" for file in files),
-            [Button.inline(file, f"file:{n}") for n, file in enumerate(files)]
+            buttons
         )
