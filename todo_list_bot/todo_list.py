@@ -8,6 +8,7 @@ list_parsed = Counter("todolistbot_parse_list_total", "Number of todo lists pars
 sections_parsed = Counter("todolistbot_parse_section_total", "Number of todo list sections parsed")
 items_parsed = Counter("todolistbot_parse_items_total", "Number of todo list items parsed")
 
+
 # noinspection PyMethodMayBeStatic
 class TodoList:
     def __init__(self, path: str):
@@ -72,7 +73,15 @@ class TodoList:
         return status, line
 
     def to_text(self) -> str:
-        return self.root_section.to_text()
+        max_length = 4096
+        max_depth = None
+        text = self.root_section.to_text()
+        if len(text) < max_length:
+            return text
+        max_depth = 10
+        while len(self.root_section.to_text()) > max_length and max_depth >= 1:
+            max_depth -= 1
+        return self.root_section.to_text(max_depth)
 
     def save(self) -> None:
         with open(self.path, "w") as f:
@@ -101,7 +110,7 @@ class TodoContainer(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def to_text(self) -> str:
+    def to_text(self, max_depth: Optional[int] = None) -> str:
         raise NotImplementedError
 
 
@@ -122,12 +131,14 @@ class TodoSection(TodoContainer):
         if self.parent:
             self.parent.sub_sections.remove(self)
 
-    def to_text(self) -> str:
+    def to_text(self, max_depth: Optional[int] = None) -> str:
         lines = []
         if self.depth != 0:
             lines += ["#" * self.depth + " " + self.title]
-        lines += [item.to_text() for item in self.root_items]
-        lines += ["\n" + section.to_text() for section in self.sub_sections]
+        if max_depth:
+            lines += [item.to_text(max_depth) for item in self.root_items]
+        if not max_depth or self.depth < max_depth:
+            lines += ["\n" + section.to_text(max_depth) for section in self.sub_sections]
         return "\n".join(lines)
 
 
@@ -160,9 +171,10 @@ class TodoItem(TodoContainer):
         else:
             self.parent_section.root_items.remove(self)
 
-    def to_text(self) -> str:
+    def to_text(self, max_depth: Optional[int] = None) -> str:
         lines = [self.status.value + ("- " * self.depth)[:self.depth] + self.name]
-        lines += [item.to_text() for item in self.sub_items]
+        if not max_depth or (self.parent_item.depth + self.depth) < max_depth:
+            lines += [item.to_text(max_depth) for item in self.sub_items]
         return "\n".join(lines)
 
 
