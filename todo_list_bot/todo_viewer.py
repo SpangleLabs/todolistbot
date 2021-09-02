@@ -6,7 +6,7 @@ from prometheus_client import Counter
 from telethon import Button
 
 from todo_list_bot.response import Response
-from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus
+from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus, TodoContainer
 
 errors = Counter("todolistbot_viewer_errors_total", "Number of errors in the todo viewer")
 file_selected = Counter("todolistbot_cmd_file_total", "Number of times a file has been opened")
@@ -192,7 +192,19 @@ class TodoViewer:
         if section is None:
             errors.inc()
             return Response("No todo list section selected.")
+        response = None
+        for line in entry_text.split("\n"):
+            response = self.append_line(section, line)
+        if not response:
+            errors.inc()
+            return Response("What")
+        return response
+    
+    def append_line(self, section: TodoContainer, entry_text: str) -> Response:
         if entry_text.startswith("#"):
+            if not isinstance(section, TodoSection):
+                errors.inc()
+                return Response("Can't add sections to items.")
             create_section.inc()
             title = entry_text.lstrip("#").strip()
             if section.sub_sections:
@@ -225,7 +237,7 @@ class TodoViewer:
         self.current_todo.save()
         return self.current_todo_list_message(f"Added new item: {new_item.to_text()}")
 
-    def current_section(self) -> Optional[Union['TodoSection', 'TodoItem']]:
+    def current_section(self) -> Optional[TodoContainer]:
         if self.current_todo is None:
             return None
         current_section = self.current_todo.root_section
