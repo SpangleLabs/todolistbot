@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "todolistbot"
+version = "0.1.0"
+description = "A telegram bot to view and manage todo lists"
+authors = ["Joshua Coales <joshua@coales.co.uk>"]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+Telethon = "^1.23.0"
+
+[tool.poetry.dev-dependencies]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
