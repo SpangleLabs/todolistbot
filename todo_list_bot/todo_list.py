@@ -74,7 +74,6 @@ class TodoList:
 
     def to_text(self) -> str:
         max_length = 4096
-        max_depth = None
         text = self.root_section.to_text()
         if len(text) < max_length:
             return text
@@ -135,10 +134,10 @@ class TodoSection(TodoContainer):
         lines = []
         if self.depth != 0:
             lines += ["#" * self.depth + " " + self.title]
-        if max_depth:
+        if max_depth is not None:
             lines += [item.to_text(max_depth) for item in self.root_items]
-        if not max_depth or self.depth < max_depth:
-            lines += ["\n" + section.to_text(max_depth) for section in self.sub_sections]
+        if max_depth is None or self.depth < max_depth:
+            lines += [("" if max_depth else "\n") + section.to_text(max_depth) for section in self.sub_sections]
         return "\n".join(lines)
 
 
