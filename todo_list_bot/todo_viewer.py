@@ -266,9 +266,12 @@ class TodoViewer:
         buttons = [Button.inline("🔙 Back to listing", "list")]
         if section != self.current_todo.root_section:
             buttons += [
-                Button.inline("🔼 Up one level", "up"),
-                Button.inline("🗑 Delete", "delete")
+                Button.inline("🔼 Up one level", "up")
             ]
+            if not section.sub_sections and not section.root_items:
+                buttons += [
+                    Button.inline("🗑 Delete", "delete")
+                ]
         if isinstance(section, TodoSection):
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
