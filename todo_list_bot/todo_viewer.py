@@ -1,3 +1,4 @@
+import os
 from os import listdir
 from os.path import isfile, join, isdir
 from typing import Dict, Optional, List
@@ -177,6 +178,11 @@ class TodoViewer:
             if section is None:
                 errors.inc()
                 return Response("Unknown section.")
+            if section == self.current_todo.root_section and section.is_empty():
+                os.remove(self.current_todo.path)
+                self.current_todo = None
+                self.current_todo_path = []
+                return self.list_files_message()
             section.remove()
             self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
             self.current_todo.save()
@@ -305,10 +311,10 @@ class TodoViewer:
             buttons += [
                 Button.inline("🔼 Up one level", "up")
             ]
-            if section.is_empty():
-                buttons += [
-                    Button.inline("🗑 Delete", "delete")
-                ]
+        if section.is_empty():
+            buttons += [
+                Button.inline("🗑 Delete", "delete")
+            ]
         buttons += [Button.inline("✏️ Edit/Replace", "replace")]
         if isinstance(section, TodoSection):
             buttons += [
