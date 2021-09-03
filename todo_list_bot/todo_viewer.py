@@ -1,12 +1,13 @@
 from os import listdir
 from os.path import isfile, join, isdir
-from typing import Dict, Optional, List, Union
+from typing import Dict, Optional, List
 
 from prometheus_client import Counter
 from telethon import Button
 
 from todo_list_bot.response import Response
-from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus, TodoContainer
+from todo_list_bot.todo_list import TodoList, TodoSection, TodoItem, TodoStatus, TodoContainer, line_is_item, \
+    line_is_section, line_is_empty
 
 errors = Counter("todolistbot_viewer_errors_total", "Number of errors in the todo viewer")
 file_selected = Counter("todolistbot_cmd_file_total", "Number of times a file has been opened")
@@ -192,25 +193,37 @@ class TodoViewer:
         if section is None:
             errors.inc()
             return Response("No todo list section selected.")
-        response = None
         # Prepare for adding
-        todo_contents = [l for l in entry_text.split("\n") if l.strip() != ""]
+        todo_contents = [l for l in entry_text.split("\n") if not line_is_empty(l)]
+        # Ensure items are minimally indented
+        items = [line for line in todo_contents if line_is_item(line)]
+        if items:
+            min_item_depth = min(len(line) - len(line.lstrip("- ")) for line in items)
+            if min_item_depth < 2:
+                add_depth = 2 - min_item_depth
+                for n in range(len(todo_contents)):
+                    if line_is_item(todo_contents[n]):
+                        todo_contents[n] = "-" * add_depth + todo_contents[n]
+        # Add to a section
         if isinstance(section, TodoSection):
+            # Ensure subsections are minimally indented
             base_depth = section.depth
-            sections = [line for line in todo_contents if line.startswith("#")]
+            sections = [line for line in todo_contents if line_is_section(line)]
             if sections:
                 lowest_section = min(len(line) - len(line.lstrip("#")) for line in sections)
                 if lowest_section <= base_depth:
                     for n in range(len(todo_contents)):
-                        if todo_contents[n].startswith("#"):
+                        if line_is_section(todo_contents[n]):
                             todo_contents[n] = "#" * base_depth + todo_contents[n]
             self.current_todo.parse_lines(todo_contents, section)
             return self.current_todo_list_message("Added to todo list section")
+        # Append sub items to an item
         if isinstance(section, TodoItem):
-            if any(l for l in todo_contents if l.startswith("#")):
+            if any(l for l in todo_contents if line_is_section(l)):
                 return Response("Cannot add sections under an item")
+            # Ensure sub items are minimally indented
             base_depth = section.depth
-            min_depth = min([len(line) - len(line.lstrip(" -")) for line in todo_contents])
+            min_depth = min(len(line) - len(line.lstrip(" -")) for line in todo_contents)
             add_depth = base_depth - min_depth + 2
             for n in range(len(todo_contents)):
                 if add_depth > 0:
@@ -240,9 +253,9 @@ class TodoViewer:
     # noinspection PyMethodMayBeStatic
     def find_in_section(
             self,
-            current_section: Union[TodoSection, TodoItem],
+            current_section: TodoContainer,
             path_part: str
-    ) -> Optional[Union[TodoSection, TodoItem]]:
+    ) -> Optional[TodoContainer]:
         if isinstance(current_section, TodoSection):
             for sub_section in current_section.sub_sections:
                 if sub_section.title == path_part:

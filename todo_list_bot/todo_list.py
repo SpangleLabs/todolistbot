@@ -9,6 +9,18 @@ sections_parsed = Counter("todolistbot_parse_section_total", "Number of todo lis
 items_parsed = Counter("todolistbot_parse_items_total", "Number of todo list items parsed")
 
 
+def line_is_section(line: str) -> bool:
+    return line.startswith("#")
+
+
+def line_is_empty(line: str) -> bool:
+    return line.strip() == ""
+
+
+def line_is_item(line: str) -> bool:
+    return not line_is_empty(line) and not line_is_section(line)
+
+
 # noinspection PyMethodMayBeStatic
 class TodoList:
     def __init__(self, path: str):
@@ -25,9 +37,9 @@ class TodoList:
         current_section = current_section or self.root_section
         current_item = None
         for line in contents:
-            if line.strip() == "":
+            if line_is_empty(line):
                 continue
-            if line.startswith("#"):
+            if line_is_section(line):
                 current_section = self.parse_section(line, current_section)
                 current_item = None
             else:
