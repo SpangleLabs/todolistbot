@@ -193,49 +193,37 @@ class TodoViewer:
             errors.inc()
             return Response("No todo list section selected.")
         response = None
-        for line in entry_text.split("\n"):
-            response = self.append_line(section, line)
-        if not response:
-            errors.inc()
-            return Response("What")
-        return response
-    
-    def append_line(self, section: TodoContainer, entry_text: str) -> Response:
-        if entry_text.startswith("#"):
-            if not isinstance(section, TodoSection):
-                errors.inc()
-                return Response("Can't add sections to items.")
-            create_section.inc()
-            title = entry_text.lstrip("#").strip()
-            if section.sub_sections:
-                depth = section.sub_sections[0].depth
-            else:
-                depth = section.depth + 1
-            new_section = TodoSection(title, depth, section)
-            self.current_todo.save()
-            return self.current_todo_list_message(f"Added new section {new_section.to_text()}")
-        create_item.inc()
-        status, line = self.current_todo.parse_status(entry_text)
-        item_text = line.lstrip(" -")
-        depth = len(line) - len(item_text)
-        parent_item = None
+        # Prepare for adding
+        todo_contents = [l for l in entry_text.split("\n") if l.strip() != ""]
         if isinstance(section, TodoSection):
-            if section.root_items:
-                depth = max(depth, section.root_items[0].depth)
-            parent_section = section
-        elif isinstance(section, TodoItem):
-            if section.sub_items:
-                depth = max(depth, section.sub_items[0].depth)
-            else:
-                depth = max(depth, section.depth + 2)
+            base_depth = section.depth
+            sections = [line for line in todo_contents if line.startswith("#")]
+            if sections:
+                lowest_section = min(len(line) - len(line.lstrip("#")) for line in sections)
+                if lowest_section <= base_depth:
+                    for n in range(len(todo_contents)):
+                        if todo_contents[n].startswith("#"):
+                            todo_contents[n] = "#" * base_depth + todo_contents[n]
+            self.current_todo.parse_lines(todo_contents, section)
+            return self.current_todo_list_message("Added to todo list section")
+        if isinstance(section, TodoItem):
+            if any(l for l in todo_contents if l.startswith("#")):
+                return Response("Cannot add sections under an item")
+            base_depth = section.depth
+            min_depth = min([len(line) - len(line.lstrip(" -")) for line in todo_contents])
+            add_depth = base_depth - min_depth + 2
+            for n in range(len(todo_contents)):
+                if add_depth > 0:
+                    todo_contents[n] = "-" * add_depth + todo_contents[n]
+                elif add_depth < 0:
+                    todo_contents[n] = todo_contents[n][-add_depth:]
+            current_item = section
             parent_section = section.parent_section
-            parent_item = section
-        else:
-            errors.inc()
-            return Response("Invalid state.")
-        new_item = TodoItem(status, item_text.strip(), depth, parent_section, parent_item)
-        self.current_todo.save()
-        return self.current_todo_list_message(f"Added new item: {new_item.to_text()}")
+            for line in todo_contents:
+                current_item = self.current_todo.parse_item(line, parent_section, current_item)
+            return self.current_todo_list_message("Added to sub-items to todo list item")
+        errors.inc()
+        return Response("What")
 
     def current_section(self) -> Optional[TodoContainer]:
         if self.current_todo is None:

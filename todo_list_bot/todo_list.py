@@ -19,7 +19,10 @@ class TodoList:
         list_parsed.inc()
         with open(self.path, "r") as f:
             contents = f.readlines()
-        current_section = self.root_section
+        self.parse_lines(contents)
+
+    def parse_lines(self, contents: List[str], current_section: Optional['TodoSection'] = None):
+        current_section = current_section or self.root_section
         current_item = None
         for line in contents:
             if line.strip() == "":
