@@ -21,6 +21,8 @@ item_done = Counter("todolistbot_cmd_item_done_total", "Number of items marked d
 item_inp = Counter("todolistbot_cmd_item_inp_total", "Number of items marked in progress")
 item_todo = Counter("todolistbot_cmd_item_todo_total", "Number of items marked to do")
 delete = Counter("todolistbot_cmd_delete_total", "Number of items or sections deleted")
+replace = Counter("todolistbot_cmd_replace_total", "Number of times a section has been replaced")
+cancel_replace = Counter("todolist_cmd_replace_total", "Number of times a replacement was cancelled")
 create_file = Counter("todolistbot_create_file_total", "Number of files created")
 create_section = Counter("todolistbot_create_section_total", "Number of sections created")
 create_item = Counter("todolistbot_create_item_total", "Number of items created")
@@ -34,6 +36,7 @@ class TodoViewer:
         self.current_directory = self.base_directory
         self.current_todo: Optional[TodoList] = None
         self.current_todo_path: Optional[List[str]] = None
+        self.replacing: bool = False
         self._dir_list = None
         self._file_list = None
 
@@ -44,6 +47,7 @@ class TodoViewer:
             "current_directory": self.current_directory,
             "current_todo": self.current_todo.to_json() if self.current_todo is not None else None,
             "current_todo_path": self.current_todo_path,
+            "replacing": self.replacing,
             "_dir_list": self._dir_list,
             "_file_list": self._file_list
         }
@@ -56,6 +60,7 @@ class TodoViewer:
         if json_data["current_todo"]:
             viewer.current_todo = TodoList.from_json(json_data["current_todo"])
         viewer.current_todo_path = json_data.get("current_todo_path")
+        viewer.replacing = json_data.get("replacing", False)
         viewer._dir_list = json_data.get("_dir_list")
         viewer._file_list = json_data["_file_list"]
         return viewer
@@ -176,6 +181,14 @@ class TodoViewer:
             self.current_todo_path = self.current_todo_path[:len(self.current_todo_path)-1]
             self.current_todo.save()
             return self.current_todo_list_message()
+        if cmd == b"replace":
+            replace.inc()
+            self.replacing = True
+            return self.current_todo_list_message("Replacing todo list section, please enter the replacement todo list")
+        if cmd == b"cancel_replace":
+            cancel_replace.inc()
+            self.replacing = False
+            return self.current_todo_list_message("Replacement cancelled.")
         errors.inc()
         return Response("I do not understand that button.")
 
@@ -193,6 +206,15 @@ class TodoViewer:
         if section is None:
             errors.inc()
             return Response("No todo list section selected.")
+        # If replacing, then remove the current section and set current to parent
+        if self.replacing:
+            self.replacing = False
+            del_section = section
+            section = section.parent_section
+            del_section.remove()
+            if section is None:
+                section = TodoSection("root", 0, None)
+                self.current_todo.root_section = section
         # Prepare for adding
         todo_contents = [l for l in entry_text.split("\n") if not line_is_empty(l)]
         # Ensure items are minimally indented
@@ -287,6 +309,7 @@ class TodoViewer:
                 buttons += [
                     Button.inline("🗑 Delete", "delete")
                 ]
+        buttons += [Button.inline("✏️ Edit/Replace", "replace")]
         if isinstance(section, TodoSection):
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.root_items)
@@ -304,7 +327,9 @@ class TodoViewer:
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
             ]
-        text = f"Opened todo list: <pre>{self.current_todo.path}</pre>.\n"
+        if self.replacing:
+            buttons = [Button.inline("❌ Cancel edit", "cancel_replace")]
+        text = f"Opened todo list: <code>{self.current_todo.path}</code>.\n"
         text += f"<pre>{self.current_todo.to_text(section)}</pre>"
         if prefix:
             text = prefix + "\n-----\n" + text
