@@ -291,7 +291,8 @@ class TodoViewer:
             buttons += [
                 Button.inline(item.name, f"item:{n}") for n, item in enumerate(section.sub_items)
             ]
-        text = f"Opened todo list: {self.current_todo.path}.\n{self.current_todo.to_text(section)}"
+        text = f"Opened todo list: <pre>{self.current_todo.path}</pre>.\n"
+        text += f"<pre>{self.current_todo.to_text(section)}</pre>"
         if prefix:
             text = prefix + "\n-----\n" + text
         return Response(
@@ -303,11 +304,14 @@ class TodoViewer:
         directories = self.list_directories()
         files = self.list_files()
         buttons = []
+        text = "You have not selected a todo list. Please choose one:\n"
         if self.current_directory.strip("/").count("/") > self.base_directory.strip("/").count("/"):
             buttons += [Button.inline("🔼 Up directory", "up_folder")]
         buttons += [Button.inline(f"📂 {directory}", f"folder:{n}") for n, directory in enumerate(directories)]
+        text += "\n".join(f"📂 <pre>{directory}</pre>" for directory in directories)
         buttons += [Button.inline(file, f"file:{n}") for n, file in enumerate(files)]
+        text += "\n".join(f"- <pre>{file}</pre>" for file in files)
         return Response(
-            "You have not selected a todo list. Please choose one:\n" + "\n".join(f"- {file}" for file in files),
+            text,
             buttons
         )
