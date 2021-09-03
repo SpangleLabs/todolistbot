@@ -321,9 +321,9 @@ class TodoViewer:
         if self.current_directory.strip("/").count("/") > self.base_directory.strip("/").count("/"):
             buttons += [Button.inline("🔼 Up directory", "up_folder")]
         buttons += [Button.inline(f"📂 {directory}", f"folder:{n}") for n, directory in enumerate(directories)]
-        text += "\n".join(f"📂 <pre>{directory}</pre>" for directory in directories)
+        text += "\n".join(f"📂 <code>{directory}</code>" for directory in directories)
         buttons += [Button.inline(file, f"file:{n}") for n, file in enumerate(files)]
-        text += "\n".join(f"- <pre>{file}</pre>" for file in files)
+        text += "\n".join(f"- <code>{file}</code>" for file in files)
         return Response(
             text,
             buttons
