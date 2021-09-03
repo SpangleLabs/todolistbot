@@ -54,7 +54,7 @@ class TodoList:
             parent_section = current_section
         else:
             while section_depth <= current_section.depth:
-                current_section = current_section.parent
+                current_section = current_section.parent_section
             parent_section = current_section
         return TodoSection(section_title, section_depth, parent_section)
    
@@ -116,6 +116,9 @@ class TodoList:
 
 class TodoContainer(ABC):
 
+    def __init__(self, parent_section: Optional['TodoSection']):
+        self.parent_section: Optional[TodoSection] = parent_section
+
     @abstractmethod
     def remove(self) -> None:
         raise NotImplementedError
@@ -130,10 +133,11 @@ class TodoContainer(ABC):
 
 
 class TodoSection(TodoContainer):
+
     def __init__(self, title: str, depth: int, parent: Optional['TodoSection']):
+        super().__init__(parent)
         self.title: str = title
         self.depth: int = depth
-        self.parent: Optional['TodoSection'] = parent
         self.sub_sections: List['TodoSection'] = []
         if parent:
             parent.sub_sections.append(self)
@@ -143,8 +147,8 @@ class TodoSection(TodoContainer):
         return not self.sub_sections and not self.root_items
 
     def remove(self) -> None:
-        if self.parent:
-            self.parent.sub_sections.remove(self)
+        if self.parent_section:
+            self.parent_section.sub_sections.remove(self)
 
     def to_text(self, max_depth: Optional[int] = None) -> str:
         lines = []
@@ -166,10 +170,10 @@ class TodoItem(TodoContainer):
             parent_section: TodoSection,
             parent_item: Optional['TodoItem']
     ):
+        super().__init__(parent_section)
         self.status: 'TodoStatus' = status
         self.name: str = name
         self.depth: int = depth
-        self.parent_section: TodoSection = parent_section
         self.parent_item: Optional['TodoItem'] = parent_item
         self.sub_items: List['TodoItem'] = []
         if parent_item:
