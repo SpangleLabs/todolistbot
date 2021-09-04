@@ -119,6 +119,11 @@ class TodoContainer(ABC):
     def __init__(self, parent_section: Optional['TodoSection']):
         self.parent_section: Optional[TodoSection] = parent_section
 
+    @property
+    @abstractmethod
+    def parent(self) -> Optional['TodoContainer']:
+        raise NotImplementedError
+
     @abstractmethod
     def remove(self) -> None:
         raise NotImplementedError
@@ -143,6 +148,10 @@ class TodoSection(TodoContainer):
             parent.sub_sections.append(self)
         self.root_items: List['TodoItem'] = []
 
+    @property
+    def parent(self) -> Optional['TodoSection']:
+        return self.parent_section
+
     def is_empty(self) -> bool:
         return not self.sub_sections and not self.root_items
 
@@ -162,6 +171,7 @@ class TodoSection(TodoContainer):
 
 
 class TodoItem(TodoContainer):
+
     def __init__(
             self,
             status: 'TodoStatus',
@@ -180,6 +190,12 @@ class TodoItem(TodoContainer):
             parent_item.sub_items.append(self)
         else:
             parent_section.root_items.append(self)
+
+    @property
+    def parent(self) -> TodoContainer:
+        if self.parent_item:
+            return self.parent_item
+        return self.parent_section
 
     def is_empty(self) -> bool:
         return not self.sub_items

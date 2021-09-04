@@ -216,7 +216,7 @@ class TodoViewer:
         if self.replacing:
             self.replacing = False
             del_section = section
-            section = section.parent_section
+            section = section.parent
             del_section.remove()
             if section is None:
                 section = TodoSection("root", 0, None)
