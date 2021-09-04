@@ -270,11 +270,14 @@ class TodoViewer:
         if self.current_todo is None:
             return None
         current_section = self.current_todo.root_section
+        found_path = []
         for path_part in self.current_todo_path:
             found = self.find_in_section(current_section, path_part)
             if not found:
-                return self.current_todo.root_section
+                self.current_todo_path = found_path
+                return current_section
             else:
+                found_path.append(path_part)
                 current_section = found
         return current_section
 
