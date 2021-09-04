@@ -244,6 +244,7 @@ class TodoViewer:
                         if line_is_section(todo_contents[n]):
                             todo_contents[n] = "#" * base_depth + todo_contents[n]
             self.current_todo.parse_lines(todo_contents, section)
+            self.current_todo.save()
             return self.current_todo_list_message("Added to todo list section")
         # Append sub items to an item
         if isinstance(section, TodoItem):
@@ -262,6 +263,7 @@ class TodoViewer:
             parent_section = section.parent_section
             for line in todo_contents:
                 current_item = self.current_todo.parse_item(line, parent_section, current_item)
+            self.current_todo.save()
             return self.current_todo_list_message("Added to sub-items to todo list item")
         errors.inc()
         return Response("What")
